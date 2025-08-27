@@ -9,6 +9,10 @@ import (
 	"time"
 )
 
+const (
+	RedisOK = "OK"
+)
+
 var (
 	ErrKeyExists       = errors.New("key already exists")
 	ErrKeyNotExists    = errors.New("key does not exist")
@@ -83,6 +87,14 @@ func newDefaultOptions() *redigoOptions {
 
 func (r *Redigo) GetPool() *redis.Pool {
 	return r.pool
+}
+
+func (r *Redigo) GetConn() (*redis.Conn, error) {
+	conn := r.pool.Get()
+	if err := conn.Err(); err != nil {
+		return nil, err
+	}
+	return &conn, nil
 }
 
 func (r *Redigo) Get(key string, v any) error {
@@ -215,7 +227,7 @@ func (r *Redigo) Set(key string, v any, opts ...SetOption) error {
 
 	// 检查是否为标准OK响应
 	ok, okErr := reply.(string)
-	if !okErr || ok != "OK" {
+	if !okErr || ok != RedisOK {
 		return fmt.Errorf("%w: %v", ErrInvalidResponse, reply)
 	}
 	return nil
