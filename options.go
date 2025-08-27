@@ -134,8 +134,10 @@ func WithMaxConnLifetime(maxConnLifetime time.Duration) Option {
 /*--------------------------------------------------------------------------------------------------------------------*/
 
 type setOptions struct {
-	expire int64 //seconds
-	nx     bool  //NX
+	ex int64 //EX ex in seconds
+	nx bool  //NX only do when the key not exist
+	xx bool  //XX only do when the key exist
+	px int64 //PX ex in milliseconds
 }
 
 type SetOption func(*setOptions)
@@ -148,10 +150,10 @@ func parseSetOptions(opts ...SetOption) *setOptions {
 	return options
 }
 
-// WithEX set expire time in seconds
+// WithEX set EX option
 func WithEX(expire int64) SetOption {
 	return func(o *setOptions) {
-		o.expire = expire
+		o.ex = expire
 	}
 }
 
@@ -159,5 +161,19 @@ func WithEX(expire int64) SetOption {
 func WithNX() SetOption {
 	return func(o *setOptions) {
 		o.nx = true
+	}
+}
+
+// WithXX set XX option
+func WithXX() SetOption {
+	return func(o *setOptions) {
+		o.xx = true
+	}
+}
+
+// WithPX set PX option
+func WithPX(px int64) SetOption {
+	return func(o *setOptions) {
+		o.px = px
 	}
 }

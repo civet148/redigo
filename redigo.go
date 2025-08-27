@@ -180,11 +180,15 @@ func (r *Redigo) Set(key string, v any, opts ...SetOption) error {
 		key,
 		data,
 	}
-	if options.expire != 0 {
-		args = append(args, "EX", options.expire)
+	if options.ex != 0 {
+		args = append(args, "EX", options.ex)
+	} else if options.px != 0 {
+		args = append(args, "PX", options.px)
 	}
 	if options.nx {
 		args = append(args, "NX")
+	} else if options.xx {
+		args = append(args, "XX")
 	}
 	_, err := conn.Do("SET", args...)
 	return err

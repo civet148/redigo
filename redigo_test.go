@@ -19,19 +19,25 @@ var opts = []Option{
 }
 
 func TestRedigo_Set(t *testing.T) {
-	user := &User{
-		ID:   10086,
-		Name: "yuxin001",
+	users := []*User{
+		{
+			ID:   10086,
+			Name: "dianxin",
+		},
+		{
+			ID:   10010,
+			Name: "liantong",
+		},
 	}
 	redigo := NewRedigo(opts...)
-	err := redigo.Set(redigoStringKey, user, WithEX(60), WithNX())
+	err := redigo.Set(redigoStringKey, &users, WithEX(60), WithNX())
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestRedigo_Get(t *testing.T) {
-	var v User
+	var v []User
 	redigo := NewRedigo(opts...)
 	err := redigo.Get(redigoStringKey, &v)
 	if err != nil {
