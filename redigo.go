@@ -3,9 +3,16 @@ package redigo
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"reflect"
 	"time"
+)
+
+var (
+	ErrKeyExists       = errors.New("key already exists")
+	ErrKeyNotExists    = errors.New("key does not exist")
+	ErrInvalidResponse = errors.New("invalid response from server")
 )
 
 type Redigo struct {
@@ -190,6 +197,26 @@ func (r *Redigo) Set(key string, v any, opts ...SetOption) error {
 	} else if options.xx {
 		args = append(args, "XX")
 	}
-	_, err := conn.Do("SET", args...)
-	return err
+	reply, err := conn.Do("SET", args...)
+	if err != nil {
+		return err
+	}
+
+	// 处理条件性设置选项的返回值
+	if options.nx || options.xx {
+		if reply == nil {
+			if options.nx {
+				return ErrKeyExists
+			} else {
+				return ErrKeyNotExists
+			}
+		}
+	}
+
+	// 检查是否为标准OK响应
+	ok, okErr := reply.(string)
+	if !okErr || ok != "OK" {
+		return fmt.Errorf("%w: %v", ErrInvalidResponse, reply)
+	}
+	return nil
 }
