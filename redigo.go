@@ -3,9 +3,7 @@ package redigo
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/gomodule/redigo/redis"
-	"reflect"
 	"time"
 )
 
@@ -85,29 +83,21 @@ func newDefaultOptions() *redigoOptions {
 	}
 }
 
-func (r *Redigo) GetPool() *redis.Pool {
-	return r.pool
-}
-
-func (r *Redigo) GetConn() (*redis.Conn, error) {
+func (r *Redigo) Do(cmd string, args ...any) (any, error) {
 	conn := r.pool.Get()
 	if err := conn.Err(); err != nil {
 		return nil, err
 	}
-	return &conn, nil
+	defer conn.Close()
+	return conn.Do(cmd, args...)
 }
 
 func (r *Redigo) Get(key string, v any) error {
-	conn := r.pool.Get()
-	if err := conn.Err(); err != nil {
+	conn, err := r.getConn()
+	if err != nil {
 		return err
 	}
 	defer conn.Close()
-
-	val := reflect.ValueOf(v)
-	if val.Kind() != reflect.Ptr || val.IsNil() {
-		return errors.New("v must be a non-nil pointer")
-	}
 
 	reply, err := conn.Do("GET", key)
 	if err != nil {
@@ -116,71 +106,14 @@ func (r *Redigo) Get(key string, v any) error {
 	if reply == nil {
 		return redis.ErrNil
 	}
-
-	elemVal := val.Elem()
-	switch elemVal.Kind() {
-	case reflect.String:
-		s, err := redis.String(reply, nil)
-		if err != nil {
-			return err
-		}
-		elemVal.SetString(s)
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		i, err := redis.Int64(reply, nil)
-		if err != nil {
-			return err
-		}
-		elemVal.SetInt(i)
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		u, err := redis.Uint64(reply, nil)
-		if err != nil {
-			return err
-		}
-		elemVal.SetUint(u)
-	case reflect.Float32, reflect.Float64:
-		f, err := redis.Float64(reply, nil)
-		if err != nil {
-			return err
-		}
-		elemVal.SetFloat(f)
-	case reflect.Bool:
-		b, err := redis.Bool(reply, nil)
-		if err != nil {
-			return err
-		}
-		elemVal.SetBool(b)
-	case reflect.Slice:
-		if elemVal.Type().Elem().Kind() == reflect.Uint8 {
-			// 处理[]byte类型
-			b, err := redis.Bytes(reply, nil)
-			if err != nil {
-				return err
-			}
-			elemVal.SetBytes(b)
-		} else {
-			// 其他切片类型尝试JSON反序列化
-			data, err := redis.Bytes(reply, nil)
-			if err != nil {
-				return err
-			}
-			return json.Unmarshal(data, v)
-		}
-	default:
-		// 尝试JSON反序列化到结构体
-		data, err := redis.Bytes(reply, nil)
-		if err != nil {
-			return err
-		}
-		return json.Unmarshal(data, v)
-	}
-	return nil
+	return r.scanReply(reply, v)
 }
 
 func (r *Redigo) Set(key string, v any, opts ...SetOption) error {
 	options := parseSetOptions(opts...)
 
-	conn := r.pool.Get()
-	if err := conn.Err(); err != nil {
+	conn, err := r.getConn()
+	if err != nil {
 		return err
 	}
 	defer conn.Close()
@@ -226,9 +159,105 @@ func (r *Redigo) Set(key string, v any, opts ...SetOption) error {
 	}
 
 	// 检查是否为标准OK响应
-	ok, okErr := reply.(string)
-	if !okErr || ok != RedisOK {
-		return fmt.Errorf("%w: %v", ErrInvalidResponse, reply)
+	if err = checkOK(reply, err); err != nil {
+		return err
 	}
 	return nil
+}
+
+func (r *Redigo) Del(key string) error {
+	conn, err := r.getConn()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	reply, err := conn.Do("DEL", key)
+	if err != nil {
+		return err
+	}
+
+	// 检查是否为标准OK响应
+	if err = checkOK(reply, err); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *Redigo) Exists(key string) (bool, error) {
+	conn, err := r.getConn()
+	if err != nil {
+		return false, err
+	}
+	defer conn.Close()
+
+	reply, err := conn.Do("EXISTS", key)
+	if err != nil {
+		return false, err
+	}
+
+	// 检查是否为标准OK响应
+	if err = checkOK(reply, err); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (r *Redigo) Expire(key string, expiration time.Duration) error {
+	conn, err := r.getConn()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	reply, err := conn.Do("EXPIRE", key, expiration.Seconds())
+	if err != nil {
+		return err
+	}
+
+	// 检查是否为标准OK响应
+	if err = checkOK(reply, err); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Incr increment the value of a key by 1 if v is nil, otherwise v must be an integer or float number
+func (r *Redigo) Incr(key string, v any) (reply any, err error) {
+	conn, err := r.getConn()
+	if err != nil {
+		return 0, err
+	}
+	defer conn.Close()
+
+	var incr = "INCR"
+	var args []any
+	if v != nil {
+		switch v.(type) {
+		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+			incr = "INCRBY"
+		case float32, float64:
+			incr = "INCRBYFLOAT"
+		default:
+			panic("value must be an integer or float number")
+		}
+	}
+	args = append(args, key)
+	if v != nil {
+		args = append(args, v)
+	}
+	return conn.Do(incr, args...)
+}
+
+func (r *Redigo) Decr(key string, v ...int64) (reply any, err error) {
+	conn, err := r.getConn()
+	if err != nil {
+		return 0, err
+	}
+	defer conn.Close()
+	var delta = int64(1)
+	if len(v) != 0 {
+		delta = v[0]
+	}
+	return conn.Do("DECRBY", key, delta)
 }
