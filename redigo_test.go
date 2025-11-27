@@ -1,17 +1,17 @@
 package redigo
 
 import (
-	"log"
 	"testing"
 )
 
 const (
-	expireSeconds = 3600
+	expireSeconds = 60
 	redisAddress  = "192.168.1.20:6379"
 )
 const (
-	redigoSetKey = "redigoSetKey"
-	redigoDelKey = "redigoDelTestKey"
+	redigoSetStringKey = "redigoSetStringKey"
+	redigoSetIntKey    = "redigoSetIntKey"
+	redigoDelKey       = "redigoDelTestKey"
 )
 
 type User struct {
@@ -35,27 +35,29 @@ func TestRedigo_Set(t *testing.T) {
 		},
 	}
 	redigo := NewRedigo(opts...)
-	err := redigo.Set(redigoSetKey, &users, WithEX(expireSeconds), WithNX())
+	err := redigo.Set(redigoSetStringKey, &users, WithEX(expireSeconds), WithNX())
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Logf("Set key [%s] ok", redigoSetStringKey)
 
 	var ttl int64
-	ttl, err = redigo.TTL(redigoSetKey)
+	ttl, err = redigo.TTL(redigoSetStringKey)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("key %s TTL %v", redigoSetKey, ttl)
-}
+	t.Logf("TTL key [%s] return [%v]", redigoSetStringKey, ttl)
 
-func TestRedigo_Get(t *testing.T) {
-	var v []User
-	redigo := NewRedigo(opts...)
-	err := redigo.Get(redigoSetKey, &v)
+	err = redigo.Set(redigoSetIntKey, uint64(592609353484206164), WithEX(expireSeconds))
 	if err != nil {
 		t.Fatal(err)
 	}
-	log.Printf("GET key [%v] value %+v \n", redigoSetKey, v)
+	var id int64
+	err = redigo.Get(redigoSetIntKey, &id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("GET key [%v] value [%+v]", redigoSetIntKey, id)
 }
 
 func TestRedigo_Del(t *testing.T) {
@@ -87,5 +89,5 @@ func TestRedigo_Del(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected error when getting deleted key, but got nil")
 	}
-	log.Printf("DEL key [%v] successful, get returned error: %v\n", redigoDelKey, err)
+	t.Logf("DEL key [%v] successful, get returned error: %v", redigoDelKey, err)
 }
