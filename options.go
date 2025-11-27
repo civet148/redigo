@@ -2,6 +2,7 @@ package redigo
 
 import (
 	"crypto/tls"
+	"fmt"
 	"time"
 )
 
@@ -131,13 +132,23 @@ func WithMaxConnLifetime(maxConnLifetime time.Duration) Option {
 	}
 }
 
+func checkParams(o *redigoOptions) error {
+	if o.address == "" {
+		return fmt.Errorf("empty redis address")
+	}
+	if o.maxActive < o.maxIdle {
+		return fmt.Errorf("connections max active must be greater than or equal to idle")
+	}
+	return nil
+}
+
 /*--------------------------------------------------------------------------------------------------------------------*/
 
 type setOptions struct {
-	ex int64 //EX ex in seconds
+	ex int64 //EX expire in seconds
 	nx bool  //NX only do when the key not exist
 	xx bool  //XX only do when the key exist
-	px int64 //PX ex in milliseconds
+	px int64 //PX expire in milliseconds
 }
 
 type SetOption func(*setOptions)
@@ -176,4 +187,10 @@ func WithPX(px int64) SetOption {
 	return func(o *setOptions) {
 		o.px = px
 	}
+}
+
+/*--------------------------------------------------------------------------------------------------------------------*/
+type PushOption func(*pushOptions)
+
+type pushOptions struct {
 }

@@ -48,7 +48,9 @@ func (r *Redigo) getConn() (redis.Conn, error) {
 }
 
 func (r *Redigo) scanReply(reply any, v any) error {
-
+	if reply == nil {
+		return redis.ErrNil
+	}
 	val := reflect.ValueOf(v)
 	if val.Kind() != reflect.Ptr || val.IsNil() {
 		return errors.New("v must be a non-nil pointer")

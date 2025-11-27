@@ -27,6 +27,9 @@ func NewRedigo(opts ...Option) *Redigo {
 	for _, opt := range opts {
 		opt(options)
 	}
+	if err := checkParams(options); err != nil {
+		panic(err.Error())
+	}
 	pool := &redis.Pool{
 		MaxActive:       options.maxActive,
 		MaxIdle:         options.maxIdle,
@@ -165,23 +168,23 @@ func (r *Redigo) Set(key string, v any, opts ...SetOption) error {
 	return nil
 }
 
-func (r *Redigo) Del(key string) error {
+func (r *Redigo) Del(key string) (int64, error) {
 	conn, err := r.getConn()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer conn.Close()
 
 	reply, err := conn.Do("DEL", key)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	// 检查是否为标准OK响应
-	if err = checkOK(reply, err); err != nil {
-		return err
+	var ret int64
+	if err = r.scanReply(reply, &ret); err != nil {
+		return 0, err
 	}
-	return nil
+	return ret, nil
 }
 
 func (r *Redigo) Exists(key string) (bool, error) {
@@ -201,6 +204,25 @@ func (r *Redigo) Exists(key string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+func (r *Redigo) TTL(key string) (int64, error) {
+	conn, err := r.getConn()
+	if err != nil {
+		return 0, err
+	}
+	defer conn.Close()
+
+	reply, err := conn.Do("TTL", key)
+	if err != nil {
+		return 0, err
+	}
+
+	var ttl int64
+	if err = r.scanReply(reply, &ttl); err != nil {
+		return 0, err
+	}
+	return ttl, nil
 }
 
 func (r *Redigo) Expire(key string, expiration time.Duration) error {
@@ -260,4 +282,14 @@ func (r *Redigo) Decr(key string, v ...int64) (reply any, err error) {
 		delta = v[0]
 	}
 	return conn.Do("DECRBY", key, delta)
+}
+
+func (r *Redigo) Push(key string, v any, opts ...PushOption) (reply any, err error) {
+	conn, err := r.getConn()
+	if err != nil {
+		return 0, err
+	}
+	defer conn.Close()
+
+	return
 }
