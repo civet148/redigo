@@ -284,12 +284,110 @@ func (r *Redigo) Decr(key string, v ...int64) (reply any, err error) {
 	return conn.Do("DECRBY", key, delta)
 }
 
-func (r *Redigo) Push(key string, v any, opts ...PushOption) (reply any, err error) {
+func (r *Redigo) ListPush(key string, v any, opts ...ListOption) (ret int64, err error) {
+	options := parseListOptions(opts...)
 	conn, err := r.getConn()
 	if err != nil {
 		return 0, err
 	}
 	defer conn.Close()
 
-	return
+	var reply any
+	if options.right {
+		if options.block {
+			reply, err = conn.Do("BRPUSH", key, v)
+		} else {
+			reply, err = conn.Do("RPUSH", key, v)
+		}
+	} else {
+		if options.block {
+			reply, err = conn.Do("BLPUSH", key, v)
+		} else {
+			reply, err = conn.Do("LPUSH", key, v)
+		}
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	if err = r.scanReply(reply, &ret); err != nil {
+		return 0, err
+	}
+	return ret, nil
+}
+
+// 阻塞模式(BRPOP/BLPOP) n表示超时时间(s), 否则n表示取值个数
+func (r *Redigo) ListPop(key string, n int, v any, opts ...ListOption) (err error) {
+	options := parseListOptions(opts...)
+	conn, err := r.getConn()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	var reply any
+	if options.right {
+		if options.block {
+			reply, err = conn.Do("BRPOP", key, n)
+		} else {
+			reply, err = conn.Do("RPOP", key, n)
+		}
+	} else {
+		if options.block {
+			reply, err = conn.Do("BLPOP", key, n)
+		} else {
+			reply, err = conn.Do("LPOP", key, n)
+		}
+	}
+	if err != nil {
+		return err
+	}
+
+	values, err := redis.Values(reply, err)
+	if err != nil {
+		return err
+	}
+
+	// 将结果扫描到切片
+	if err = redis.ScanSlice(values, v); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *Redigo) ListLen(key string) (n int64, err error) {
+	conn, err := r.getConn()
+	if err != nil {
+		return 0, err
+	}
+	defer conn.Close()
+
+	reply, err := conn.Do("LLEN", key)
+	if err != nil {
+		return 0, err
+	}
+	if err = r.scanReply(reply, &n); err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+func (r *Redigo) ListRange(key string, start, stop int64, v any) (err error) {
+	conn, err := r.getConn()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	// 执行 LRANGE 命令
+	values, err := redis.Values(conn.Do("LRANGE", key, start, stop))
+	if err != nil {
+		return err
+	}
+
+	// 将结果扫描到切片
+	if err = redis.ScanSlice(values, v); err != nil {
+		return err
+	}
+	return nil
 }

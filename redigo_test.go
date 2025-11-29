@@ -12,6 +12,7 @@ const (
 	redigoSetStringKey = "redigoSetStringKey"
 	redigoSetIntKey    = "redigoSetIntKey"
 	redigoDelKey       = "redigoDelTestKey"
+	redigoListKey      = "redigoListKey"
 )
 
 type User struct {
@@ -52,7 +53,7 @@ func TestRedigo_Set(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var id int64
+	var id string
 	err = redigo.Get(redigoSetIntKey, &id)
 	if err != nil {
 		t.Fatal(err)
@@ -90,4 +91,35 @@ func TestRedigo_Del(t *testing.T) {
 		t.Fatal("Expected error when getting deleted key, but got nil")
 	}
 	t.Logf("DEL key [%v] successful, get returned error: %v", redigoDelKey, err)
+}
+
+func TestRedigo_LIst(t *testing.T) {
+	var err error
+	redigo := NewRedigo(opts...)
+	_, err = redigo.ListPush(redigoListKey, "1", WithRright())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = redigo.ListPush(redigoListKey, "2", WithRright())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = redigo.ListPush(redigoListKey, "3", WithRright())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var list []string
+	err = redigo.ListRange(redigoListKey, 0, -1, &list)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("list rnage %+v", list)
+
+	list = []string{}
+	err = redigo.ListPop(redigoListKey, 1, &list)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("list pop %+v", list)
 }

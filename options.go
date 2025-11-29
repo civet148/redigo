@@ -190,7 +190,30 @@ func WithPX(px int64) SetOption {
 }
 
 /*--------------------------------------------------------------------------------------------------------------------*/
-type PushOption func(*pushOptions)
 
-type pushOptions struct {
+type ListOption func(*listOptions)
+
+type listOptions struct {
+	right bool
+	block bool
+}
+
+func parseListOptions(opts ...ListOption) *listOptions {
+	options := &listOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+	return options
+}
+
+func WithRright() ListOption {
+	return func(o *listOptions) {
+		o.right = true
+	}
+}
+
+func WithBlock() ListOption {
+	return func(o *listOptions) {
+		o.block = true
+	}
 }
