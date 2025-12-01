@@ -114,3 +114,26 @@ func (r *Redigo) scanReply(reply any, v any) error {
 	}
 	return nil
 }
+
+// unwind方法，当用户传入的v是slice则自动转为[]any返回，否则直接返回[]any{v}
+func unwind(v any) (list []any) {
+	if v == nil {
+		return []any{}
+	}
+
+	// 使用反射来检查类型
+	val := reflect.ValueOf(v)
+
+	// 如果是切片或数组，将其元素展开
+	if val.Kind() == reflect.Slice || val.Kind() == reflect.Array {
+		length := val.Len()
+		list = make([]any, length)
+		for i := 0; i < length; i++ {
+			list[i] = val.Index(i).Interface()
+		}
+		return list
+	}
+
+	// 如果不是切片，直接包装成单元素切片返回
+	return []any{v}
+}

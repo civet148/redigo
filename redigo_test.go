@@ -1,6 +1,7 @@
 package redigo
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -93,18 +94,10 @@ func TestRedigo_Del(t *testing.T) {
 	t.Logf("DEL key [%v] successful, get returned error: %v", redigoDelKey, err)
 }
 
-func TestRedigo_LIst(t *testing.T) {
+func TestRedigo_List(t *testing.T) {
 	var err error
 	redigo := NewRedigo(opts...)
-	_, err = redigo.ListPush(redigoListKey, "1", WithRright())
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = redigo.ListPush(redigoListKey, "2", WithRright())
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = redigo.ListPush(redigoListKey, "3", WithRright())
+	_, err = redigo.ListPush(redigoListKey, []string{"1", "3", "5", "7"}, WithUnwind())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,12 +107,42 @@ func TestRedigo_LIst(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("list rnage %+v", list)
+	var n int64
+	n, err = redigo.ListLen(redigoListKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("list count %v range %+v", n, list)
 
 	list = []string{}
-	err = redigo.ListPop(redigoListKey, 1, &list)
+	err = redigo.ListPop(redigoListKey, 1, &list, WithRright())
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("list pop %+v", list)
+}
+
+func TestUnwind(t *testing.T) {
+	// 测试普通值
+	assert.Equal(t, []any{42}, unwind(42))
+	assert.Equal(t, []any{"hello"}, unwind("hello"))
+	assert.Equal(t, []any{3.14}, unwind(3.14))
+
+	// 测试nil
+	assert.Equal(t, []any{}, unwind(nil))
+
+	// 测试切片
+	assert.Equal(t, []any{1, 2, 3}, unwind([]int{1, 2, 3}))
+	assert.Equal(t, []any{"a", "b", "c"}, unwind([]string{"a", "b", "c"}))
+
+	// 测试空切片
+	assert.Equal(t, []any{}, unwind([]int{}))
+	assert.Equal(t, []any{}, unwind([]string{}))
+
+	// 测试数组
+	assert.Equal(t, []any{1, 2, 3}, unwind([3]int{1, 2, 3}))
+
+	// 测试混合类型切片
+	mixed := []any{1, "hello", 3.14, true}
+	assert.Equal(t, mixed, unwind(mixed))
 }

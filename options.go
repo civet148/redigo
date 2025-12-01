@@ -194,8 +194,9 @@ func WithPX(px int64) SetOption {
 type ListOption func(*listOptions)
 
 type listOptions struct {
-	right bool
-	block bool
+	right  bool
+	block  bool
+	unwind bool
 }
 
 func parseListOptions(opts ...ListOption) *listOptions {
@@ -215,5 +216,10 @@ func WithRright() ListOption {
 func WithBlock() ListOption {
 	return func(o *listOptions) {
 		o.block = true
+	}
+}
+func WithUnwind() ListOption {
+	return func(o *listOptions) {
+		o.unwind = true
 	}
 }

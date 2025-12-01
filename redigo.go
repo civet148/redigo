@@ -292,18 +292,28 @@ func (r *Redigo) ListPush(key string, v any, opts ...ListOption) (ret int64, err
 	}
 	defer conn.Close()
 
+	var args []any
+	var values []any
+	if options.unwind {
+		values = unwind(v)
+	} else {
+		values = []any{v}
+	}
+	args = append(args, key)
+	args = append(args, values...)
+
 	var reply any
 	if options.right {
 		if options.block {
-			reply, err = conn.Do("BRPUSH", key, v)
+			reply, err = conn.Do("BRPUSH", args...)
 		} else {
-			reply, err = conn.Do("RPUSH", key, v)
+			reply, err = conn.Do("RPUSH", args...)
 		}
 	} else {
 		if options.block {
-			reply, err = conn.Do("BLPUSH", key, v)
+			reply, err = conn.Do("BLPUSH", args...)
 		} else {
-			reply, err = conn.Do("LPUSH", key, v)
+			reply, err = conn.Do("LPUSH", args...)
 		}
 	}
 	if err != nil {
