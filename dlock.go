@@ -4,13 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"errors"
 	"time"
-)
-
-var (
-	ErrLockAcquisitionFailed = errors.New("failed to acquire lock")
-	ErrLockNotHeld           = errors.New("lock not held by this instance")
 )
 
 // Lock represents a distributed lock

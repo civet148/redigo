@@ -2,19 +2,12 @@ package redigo
 
 import (
 	"encoding/json"
-	"errors"
 	"github.com/gomodule/redigo/redis"
 	"time"
 )
 
 const (
 	RedisOK = "OK"
-)
-
-var (
-	ErrKeyExists       = errors.New("key already exists")
-	ErrKeyNotExists    = errors.New("key does not exist")
-	ErrInvalidResponse = errors.New("invalid response from server")
 )
 
 type Redigo struct {
