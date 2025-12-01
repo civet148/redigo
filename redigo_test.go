@@ -1,6 +1,8 @@
 package redigo
 
 import (
+	"errors"
+	"github.com/gomodule/redigo/redis"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -10,6 +12,7 @@ const (
 	redisAddress  = "192.168.1.20:6379"
 )
 const (
+	redigoNotFoundKey  = "redigoNotFoundKey"
 	redigoSetStringKey = "redigoSetStringKey"
 	redigoSetIntKey    = "redigoSetIntKey"
 	redigoDelKey       = "redigoDelTestKey"
@@ -37,7 +40,17 @@ func TestRedigo_Set(t *testing.T) {
 		},
 	}
 	redigo := NewRedigo(opts...)
-	err := redigo.Set(redigoSetStringKey, &users, WithEX(expireSeconds), WithNX())
+	var id string
+	err := redigo.Get(redigoNotFoundKey, &id)
+	if err != nil {
+		if errors.Is(err, redis.ErrNil) {
+			t.Logf("key [%s] not found", redigoNotFoundKey)
+		} else {
+			t.Fatal(err)
+		}
+	}
+
+	err = redigo.Set(redigoSetStringKey, &users, WithEX(expireSeconds), WithNX())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +67,7 @@ func TestRedigo_Set(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var id string
+
 	err = redigo.Get(redigoSetIntKey, &id)
 	if err != nil {
 		t.Fatal(err)
