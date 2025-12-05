@@ -9,7 +9,8 @@ import (
 
 const (
 	expireSeconds = 60
-	redisAddress  = "192.168.1.20:6379"
+	redisAddress  = "127.0.0.1:6379"
+	redisPassword = "123456"
 )
 const (
 	redigoNotFoundKey  = "redigoNotFoundKey"
@@ -26,6 +27,7 @@ type User struct {
 
 var opts = []Option{
 	WithAddress(redisAddress),
+	WithPassword(redisPassword),
 }
 
 func TestRedigo_Set(t *testing.T) {
